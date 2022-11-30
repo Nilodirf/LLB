@@ -1,7 +1,5 @@
-#next step: MxM matrix with coupling constants
-#also: change M=2 to M=3 to get a better matrix for exchange coupling constants
-
-
+# next step: construct an array of exchange couplings reflecting the sample construction
+# also: make a function out of the J_mat definition with input (materials, sample). Generalize it so that a square matrix of sum_i^(n-1) 1  is constructed and must take as many exchange couplings as input
 import numpy as np
 from scipy import constants as sp
 from scipy import interpolate as ip
@@ -17,11 +15,11 @@ from matplotlib import pyplot as plt
 #   (C) some structure that defines the configuration of different unit cells
 #   (D),(E) electron (phonon)- temperatures Te(p) (at each time step 1 of these 1d arrays is needed)
 
-# (A1,2,3) Let's initialize an array of length N=200 for all the magnetization data:
+# (A1,2,3) Let's initialize an array of length N=150 for all the magnetization data:
 
-m_amp=np.ones(200)
-m_phi=np.zeros(200)
-m_gamma=np.ones(200)*90.
+m_amp=np.ones(150)
+m_phi=np.zeros(150)
+m_gamma=np.ones(150)*90.
 
 # and define a function to get the magnetization vector:
 def get_mag(amp, gamma, phi):
@@ -51,23 +49,38 @@ class material():
 # (C) Let's define a dummy function to construct a sample consisting of different materials of grainsize and their exchange couplings:
 
 def get_sample():
-    # This is a dummy function that should definitely be replaced by outputs from your code, thus it does not take any inputs.
+    # This is a dummy function that should definitely be replaced by outputs from your code. It does not take any input parameters as I define everything here.
     # As an output we get
     #   (i) a 1d array of M materials within the sample (materials on the scale of the grainsize of the macrospins)
     #   (ii) a 1d array of the actual sample consisting of stacked layers of the M materials
     #   (iii) an MxM matrix with exchange coupling constants  between different materials
 
-    # Define define two dummy materials with different parameters:
-    mat_1 = material(1 / 2, 650)
-    mat_2 = material(7 / 2, 1200)
-    materials=np.array([mat_1, mat_2])
+    # Define define three dummy materials with different parameters:
+    mat_1 = material(1/2, 650)
+    mat_2 = material(7/2, 1200)
+    mat_3 = material(1, 300)
+    materials=np.array([mat_1, mat_2, mat_3])
 
-    # Define a sample structure where 5 layers of sam_1 and five layers of sam_2 build blocks that are periodically stacked 20 times (5*2*20=200=N):
+    # Define a sample structure where 5 layers of each sam build blocks that are periodically stacked 10 times (5*3*10=150=N):
 
     building_block=np.concatenate((np.array([mat_1 for _ in range(5)]), np.array([mat_2 for _ in range(5)])))
     sample=np.concatenate([building_block for _ in range(20)])
 
-    # Here I also define some exchange coupling constants for the couplings of different materials:
+
+    # Define a matrix J_mat of dimension len(materials)xlen(materials) with the exchange coupling constants of mat_i and mat_j at J_mat[i][j]=J_mat[j][i]
+    J_mat=np.zeros((len(materials), len(materials)))
+    # fill the diagonal with the mean field exchange constant of each material:
+    for i, mat in enumerate(materials):
+        J_mat[i][i]=mat.exch_const()
+    # define the off-diagonals, namely some values for exchange coupling constants of different materials:
+    J_mat[0][1]=1e-20
+    J_mat[1][2]=5e-20
+    J_mat[0][2]=1e-19
+    # symmetrize the matrix so that also elements [i][j] with i>j can be read out:
+    for i in range(1,len(materials)):
+        for j in range(i-1):
+            J_mat[i][j]=J_mat[j][i]
+
 
 # Now the sample is defined on the scale needed for LLB computation. On the basis of this structure we can define for instance the exchange coupling of neighbouring grains:
 def exch_coup(sample, mag,):
