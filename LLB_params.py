@@ -1,5 +1,5 @@
-# next step:    (i) implement longitudinal and transverse damping
-#               (ii) check simulation of damping (/rates) with parameters from Unais theis or so
+# next step:    (i) find and implement the temperature dependence of interaction terms
+#               (ii) check simulation of damping (/rates) with parameters from Unais thesis
 # also: make a function out of the J_mat definition with input (materials, sample). Generalize it so that a square matrix of sum_i^(n-1) 1  is constructed and must take as many exchange couplings as input
 import numpy as np
 from scipy import constants as sp
@@ -10,7 +10,7 @@ from matplotlib import pyplot as plt
 # In this file, the dynamical parameters needed for the quantum LLB implementation are computed.
 # We use mean field theory to get the temperature dependence of these parameters. The scaling is mostly defined by the mean field magnetization at a given temperature.
 # As an input for the computations, I assume 1d numpy-arrays of
-#   (1) magnetization_amplitudes m_amp,
+#   (1) magnetization amplitudes m_amp,
 #   (2) angles gamma in the transverse plane m_gamma,
 #   (3) angles phi in the magnetization plane m_phi,
 #   (4) the materials (unit cells) with UNIFORM parameters that shall be investigated
@@ -29,7 +29,7 @@ class material():
         self.mean_mag_map=self.create_mean_mag_map()        # creates the mean magnetization map over temperature as an interpolation function
         self.mean_mag_deriv=self.create_mean_mag_deriv()    # creates the mean magnetization derivative of temperature as an interpolation function
         self.lamda=lamda                                    # intrinsic coupling to bath parameter
-        self.muat=muat                                      #atomic magnetic moment
+        self.muat=muat                                      # atomic magnetic moment
 
     def __str__(self):
         return self.name
@@ -67,9 +67,9 @@ class material():
         def find_intersection_sp(m, Bm, m0):
             return op.fsolve(lambda x: m(x) - Bm(x), m0)
 
-        # Find meq for every temperature, starting point for the search being 1-T/Tc, fill the list
+        # Find meq for every temperature, starting point for the search being (1-T/Tc)^(1/2), fill the list
         for i,T in enumerate(temp_grid[1:]):
-            # Redefine the Brillouin function to set the temperature parameter (I did not find a mor elegant solution to this):
+            # Redefine the Brillouin function to set the temperature parameter (I did not find a more elegant solution to this):
             def Brillouin_2(m):
                 return Brillouin(m, T)
             # Get meq:
@@ -82,7 +82,7 @@ class material():
         return ip.interp1d(temp_grid, meq_list)
 
     def create_mean_mag_deriv(self):
-        # This function returns the derivative of the mean magnetization map, needed to compute the longitudinal susceptibility. This can be included in create_mean_mag_map bit I seperated it for clarity.
+        # This function returns the derivative of the mean magnetization map, needed to compute the longitudinal susceptibility. This can be included in create_mean_mag_map but I seperated it for clarity.
         temp_grid=np.array(list(np.arange(0, 0.8, 1e-3))+list(np.arange(0.8, 1+1e-5, 1e-5)))
         temp_diff=np.diff(temp_grid)
         return ip.interp1d(temp_grid[:-1], np.diff(self.mean_mag_map(temp_grid))/temp_diff)
@@ -102,9 +102,11 @@ class material():
         return dmeq_dT
 
     def alpha_par(self, T):
+        # This funtion computes the longitudinal damping parameter alpha_parallel
         return 2*self.lamda/(self.S+1)*1/np.sinh(3*self.Tc*self.mean_mag_map(T)/(self.S+1)*T)
 
     def alpha_trans(self, T):
+        # This function computes the transverse damping parameter alpha_transverse
         meq=self.mean_mag_map(T)
         qs=3*self.Tc*meq/(2*self.S+1)/T
         return self.lamda/meq*(np.tanh(qs)/qs-T/3/self.Tc)
@@ -123,7 +125,7 @@ def get_sample():
     mat_3 = material('tres', 1, 300., 0.02, 1.5)
     materials=[mat_1, mat_2, mat_3]
 
-    # Define a sample structure where 5 layers of each sam build blocks that are periodically stacked 10 times (5*3*10=150=N):
+    # Define a sample structure where 5 layers of each material build blocks that are periodically stacked 10 times (5*3*10=150=N):
     building_block=np.concatenate((np.array([mat_1 for _ in range(5)]), np.array([mat_2 for _ in range(5)]), np.array([mat_3 for _ in range(5)])))
     sample=np.concatenate([building_block for _ in range(10)])
 
@@ -158,6 +160,7 @@ def plot_mean_mags(materials):
     plt.ylabel(r'$m_{\rm{eq}}$', fontsize=16)
     plt.legend(fontsize=14)
     plt.title(r'$m_{\rm{eq}}$ for all materials in sample', fontsize=18)
+    plt.savefig('plots/meqtest.pdf')
     plt.show()
 
 def plot_mean_mag_derivs(materials):
@@ -173,16 +176,17 @@ def plot_mean_mag_derivs(materials):
     plt.ylabel(r'$\partial_Tm_{\rm{eq}}$', fontsize=16)
     plt.legend(fontsize=14)
     plt.title(r'Derivative of $m_{\rm{eq}}$ for all materials in sample', fontsize=18)
+    plt.savefig('plots/dmeqdTtest.pdf')
     plt.show()
 
 
 materials, sample, m_amp, m_phi, m_gamma=get_sample()
-plot_mean_mags(materials)
-plot_mean_mag_derivs(materials)
+#plot_mean_mags(materials)
+#plot_mean_mag_derivs(materials)
 
 
 # All the above defines the needed material parameters. Now we deal with the actual sample structure. In principle, the interactions
-# that will later be computed dynamically get scalar (z.B. exchange interaction) or vectorial  outcomes that we can map onto the the material parameters
+# that will later be computed dynamically get scalar (z.B. exchange interaction) or vectorial outcomes that we can map onto the the material parameters
 # meq(T) and dm_eq/dT(T) for each grain in the sample.
 
 # From the sample and the materials within, one can set up an array of exchange-coupling constants between all grains:
@@ -219,3 +223,4 @@ def get_exch_coup_sam(materials, sample):
     return ex_coup_arr
 
 exch_coup_const=get_exch_coup_sam(materials, sample)
+print(exch_coup_const)
