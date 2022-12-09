@@ -223,4 +223,3 @@ def get_exch_coup_sam(materials, sample):
     return ex_coup_arr
 
 exch_coup_const=get_exch_coup_sam(materials, sample)
-print(exch_coup_const)
