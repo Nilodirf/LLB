@@ -181,7 +181,7 @@ def plot_mean_mag_derivs(materials):
 
 
 materials, sample, m_amp, m_phi, m_gamma=get_sample()
-#plot_mean_mags(materials)
+plot_mean_mags(materials)
 #plot_mean_mag_derivs(materials)
 
 

@@ -3,6 +3,8 @@
   <component name="ChangeListManager">
     <list default="true" id="79970741-0cdc-4b37-b56e-547ea512fa2d" name="Changes" comment="ahaaaa">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.ipynb_checkpoints/llb_params-checkpoint.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/.ipynb_checkpoints/llb_params-checkpoint.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/llb_params.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/llb_params.ipynb" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
