@@ -6,6 +6,7 @@ from scipy import constants as sp
 from scipy import optimize as op
 from scipy import interpolate as ip
 from matplotlib import pyplot as plt
+import itertools
 
 # In this file, the dynamical parameters needed for the quantum LLB implementation are computed.
 # We use mean field theory to get the temperature dependence of these parameters. The scaling is mostly defined by the mean field magnetization at a given temperature.
@@ -26,14 +27,13 @@ class material():
         self.S=S                                            # effective spin
         self.Tc=Tc                                          # Curie temperature
         self.J=3*self.S/(self.S+1)*sp.k*self.Tc             # mean field exchange coupling constant
-        self.mean_mag_map=self.create_mean_mag_map()        # creates the mean magnetization map over temperature as an interpolation function
-        self.mean_mag_deriv=self.create_mean_mag_deriv()    # creates the mean magnetization derivative of temperature as an interpolation function
+        self.mean_mag_map=self.create_mean_mag_map()         # creates the mean magnetization map over temperature as an interpolation function
         self.lamda=lamda                                    # intrinsic coupling to bath parameter
         self.muat=muat                                      # atomic magnetic moment
-        self.kappa_anis = kappa_anis  # exponent for the temperature dependence of uniaxial anisotropy
-        self.anis_axis = anis_axis  # uniaxials anisotropy axis (x:0, y:1, z:2) other anisotropies are not yet implemented
-        self.K_0 = K_0  # value for the anisotropy at T=0 K in units of J
-        self.A_0 = A_0  # value for the exchange stiffness at T=0 K in units of J*m^2
+        self.kappa_anis=kappa_anis                          # exponent for the temperature dependence of uniaxial anisotropy
+        self.anis_axis=anis_axis                            # uniaxials anisotropy axis (x:0, y:1, z:2) other anisotropies are not yet implemented
+        self.K_0=K_0                                        # value for the anisotropy at T=0 K in units of J
+        self.A_0=A_0                                        # value for the exchange stiffness at T=0 K in units of J*m^2
 
     def __str__(self):
         return self.name
@@ -173,9 +173,10 @@ def get_mag(polar_dat):
 def plot_mean_mags(materials):
     #define a temperature grid:
     temps=np.arange(0,2+1e-4, 1e-4)
+    tc_mask=temps<1.
     temps[-1]=1.
     for i,m in enumerate(materials):
-        mmag=m.get_mean_mag(temps)
+        mmag=m.get_mean_mag(temps, tc_mask)
         label=str(m)
         plt.plot(temps*m.Tc, mmag, label=label)
 
@@ -308,4 +309,41 @@ chi_par_denomm1_sam=chi_par_denomm1_sample(sample)
 ### Now we deal with the temperature dependence of the parameters. All the following functions are called at every timestep of the dynamical simulation:
 
 
+def split_sample_T(T, tc_mask, mat_gr_ind, materials):
+    T_sep=[np.array([T[i] for i in mat_ind])/materials[j].Tc for j, mat_ind in enumerate(mat_gr_ind)]
+    tc_mask_sep=[np.array([tc_mask[i] for i in mat_ind]) for mat_ind in mat_gr_ind]
+    return T_sep, tc_mask_sep
 
+
+def get_mean_mag_sample_T(mat_gr_ind, mat_gr_ind_flat, materials, T_sep, tc_mask_sep):
+    mmag_sam_T = [list(materials[i].get_mean_mag(T_sep[i], tc_mask_sep[i])) for i in range(len(mat_gr_ind))]
+
+    mmag_sam_T_flat = np.array(list(itertools.chain.from_iterable(mmag_sam_T)))
+    return mmag_sam_T_flat[mat_gr_ind_flat]
+
+Temp_test=np.arange(1,151)*10
+t_reduced = np.divide(Temp_test, [mat.Tc for mat in sample])
+tc_mask=t_reduced<1.
+Temp_sep, tc_mask_sep=split_sample_T(Temp_test, tc_mask, mat_gr_ind, materials)
+mmag_sam_T=get_mean_mag_sample_T(mat_gr_ind, mat_gr_ind_flat, materials, Temp_sep, tc_mask_sep)
+
+def ani_sample_T(mmag_sam_T, K0_sam, kappa_ani_sam):
+    return K0_sam*mmag_sam_T**kappa_ani_sam
+
+def ex_stiff_sample_T(mmag_sam_T, ex_stiff_sam):
+    return mmag_sam_T[:, np.newaxis]**2*ex_stiff_sam
+
+def qs_sample_T(qs_sam, mmag_sam_T, T):
+    return qs_sam*mmag_sam_T/T
+
+def alpha_par_sample_T(mmag_sam_T, T, alpha_par_sam, qs_sam_T):
+    return alpha_par_sam/np.sinh(2*qs_sam_T)
+
+def alpha_trans_sample_T(mmag_sam_T, lamda_sam, T, qs_sam_T, Tc_sam):
+    return lamda_sam/mmag_sam_T*(np.tanh(qs_sam_T)/qs_sam_T-mmag_sam_T/3/Tc_sam)
+
+ani_sam_T=ani_sample_T(mmag_sam_T, K0_sam, kappa_ani_sam)
+ex_stiff_sam_T=ex_stiff_sample_T(mmag_sam_T, ex_stiff_sam)
+qs_sam_T=qs_sample_T(qs_sam, mmag_sam_T, Temp_test)
+alpha_par_sam_T=alpha_par_sample_T(mmag_sam_T, Temp_test, alpha_par_sam, qs_sam_T)
+alpha_trans_sam_T=alpha_trans_sample_T(mmag_sam_T, lamda_sam, Temp_test, qs_sam_T, Tc_sam)
