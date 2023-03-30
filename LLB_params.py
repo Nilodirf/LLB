@@ -21,7 +21,7 @@ from matplotlib import pyplot as plt
 # (1,2,3,4,5) Let's define a dummy function to construct a sample consisting of different materials (this does not mean atoms but rather a definition for grainsize of at least a unit cell!)
 # For this, I construct a class that holds relevant information for the quantum LLB:
 class material():
-    def __init__(self, name, S, Tc, lamda, muat):
+    def __init__(self, name, S, Tc, lamda, muat, kappa_anis, anis_axis, K_0, A_0):
         self.name=name                                      # name of the material used for the string representation of the class
         self.S=S                                            # effective spin
         self.Tc=Tc                                          # Curie temperature
@@ -30,6 +30,10 @@ class material():
         self.mean_mag_deriv=self.create_mean_mag_deriv()    # creates the mean magnetization derivative of temperature as an interpolation function
         self.lamda=lamda                                    # intrinsic coupling to bath parameter
         self.muat=muat                                      # atomic magnetic moment
+        self.kappa_anis = kappa_anis  # exponent for the temperature dependence of uniaxial anisotropy
+        self.anis_axis = anis_axis  # uniaxials anisotropy axis (x:0, y:1, z:2) other anisotropies are not yet implemented
+        self.K_0 = K_0  # value for the anisotropy at T=0 K in units of J
+        self.A_0 = A_0  # value for the exchange stiffness at T=0 K in units of J*m^2
 
     def __str__(self):
         return self.name
@@ -81,35 +85,38 @@ class material():
         meq_list[-1]=0              # This fixes slight computational errors to fix m_eq(Tc)=0 (it produces something like m_eq[-1]=1e-7)
         return ip.interp1d(temp_grid, meq_list)
 
-    def create_mean_mag_deriv(self):
-        # This function returns the derivative of the mean magnetization map, needed to compute the longitudinal susceptibility. This can be included in create_mean_mag_map but I seperated it for clarity.
-        temp_grid=np.array(list(np.arange(0, 0.8, 1e-3))+list(np.arange(0.8, 1+1e-5, 1e-5)))
-        temp_diff=np.diff(temp_grid)
-        return ip.interp1d(temp_grid[:-1], np.diff(self.mean_mag_map(temp_grid))/temp_diff)
+    def dbrillouin_t1(self):
+        return 1 / 4 / self.S ** 2
 
-    def get_mean_mag(self, T):
+    def dbrillouin_t2(self):
+        return (2 * self.S + 1) ** 2 / 4 / self.S ** 2
+
+
+    def get_mean_mag(self, T, tc_mask):
         # After creating the map, this function can be called to give m_eq at any temperature
         # The function takes a 1d-array of temperatures as an input (temperature map at each timestep) and returns an array with the respective mean field equilibrium temperatures
-        tcmask=T<1.
         meq=np.zeros(len(T))
-        meq[tcmask]=self.mean_mag_map(T[tcmask])
+        meq[tc_mask]=self.mean_mag_map(T[tc_mask])
         return meq
 
-    def get_mean_mag_deriv(self, T):
-        tcmask=T<1.
-        dmeq_dT=np.zeros(len(T))
-        dmeq_dT[tcmask]=self.mean_mag_deriv(T[tcmask])
-        return dmeq_dT
-
-    def alpha_par(self, T):
+    def alpha_par(self):
         # This funtion computes the longitudinal damping parameter alpha_parallel
-        return 2*self.lamda/(self.S+1)*1/np.sinh(3*self.Tc*self.mean_mag_map(T)/(self.S+1)*T)
+        return 2 * self.lamda / (self.S + 1)
 
-    def alpha_trans(self, T):
-        # This function computes the transverse damping parameter alpha_transverse
-        meq=self.mean_mag_map(T)
-        qs=3*self.Tc*meq/(2*self.S+1)/T
-        return self.lamda/meq*(np.tanh(qs)/qs-T/3/self.Tc)
+    def qs(self):
+        # This function computes the first term of the transverse damping parameter alpha_transverse
+        qs = 3 * self.Tc / (2 * self.S + 1)
+        return qs
+
+    def chi_par_num(self):
+        return 1 / sp.k * self.muat
+
+    def chi_par_denomm1(self):
+        return self.J / sp.k
+
+    def anisotropy(self):
+        #This takes mean field magnetization (1d-array of length N (number of grains)), magnetization vectors (dimension 3xN), magnetization amplitudes (length N) and easy axis ([0,1,2] corresponding to [x,y,z])
+        return -2*self.K_0
 
 
 def get_sample():
@@ -117,34 +124,50 @@ def get_sample():
     # As an output we get
     #   (i) a 1d list of M materials within the sample (materials on the scale of the grainsize of the macrospins)
     #   (ii) a 1d numpy array of the actual sample consisting of stacked layers of the M materials
-    #   (iii-v) magnetization amplitude and angles
+    #   (iii-v) magnetization amplitudes and angles
 
     # Define define three dummy materials with different parameters:
-    mat_1 = material('uno', 1/2, 650., 0.01, 2.)
-    mat_2 = material('dos', 7/2, 1200., 0.015, 1.)
-    mat_3 = material('tres', 1, 300., 0.02, 1.5)
-    materials=[mat_1, mat_2, mat_3]
+    mat_1 = material('uno', 1 / 2, 650., 0.01, 2., 1.6, 2, 1.5e6, 1e-3)
+    mat_2 = material('dos', 7 / 2, 1200., 0.015, 1., 1.6, 2, 1.7e6, 1e-3)
+    mat_3 = material('tres', 1, 300., 0.02, 1.5, 1.6, 0, 2.2e6, 1e-3)
+    materials = [mat_1, mat_2, mat_3]
 
     # Define a sample structure where 5 layers of each material build blocks that are periodically stacked 10 times (5*3*10=150=N):
-    building_block=np.concatenate((np.array([mat_1 for _ in range(5)]), np.array([mat_2 for _ in range(5)]), np.array([mat_3 for _ in range(5)])))
-    sample=np.concatenate([building_block for _ in range(10)])
+    building_block = np.concatenate(
+        (np.array([mat_1 for _ in range(5)]), np.array([mat_2 for _ in range(5)]), np.array([mat_3 for _ in range(5)])))
+    sample = np.concatenate([building_block for _ in range(10)])
 
-    #Define initial magnetization on the whole sample (for simplicity uniform) and fully magnetized along the z-axis
+    # The following constructs a list of lists, containing in list[i] a list of indices of material i in the sample_structure. This will help compute the mean field magnetization only once for every material at each timestep.
+    material_grain_indices = []
+    for mat in materials:
+        material_grain_indices.append([i for i in range(len(sample)) if sample[i] == mat])
+    material_grain_indices_flat = [index for mat_list in material_grain_indices for index in mat_list]
+    sample_sorter = np.array([material_grain_indices_flat.index(i) for i in np.arange(len(sample))])
+
+    # The following list locates which material is positioned at which grain of the sample. THis will later be used to define an array of material paramters for the whole sample
+    mat_locator = [materials.index(grain) for grain in sample]
+
+    # Define initial magnetization on the whole sample (for simplicity uniform) and fully magnetized along the z-axis
     m_amp = np.ones(150)
     m_phi = np.zeros(150)
     m_gamma = np.zeros(150)
-    return materials, sample, m_amp, m_phi, m_gamma
+    return materials, sample, m_amp, m_phi, m_gamma, material_grain_indices, sample_sorter, mat_locator
 
 
 # Now I define a function to get the magnetization vector from amplitude and angles:
-def get_mag(amp, gamma, phi):
-    # This function takes as input parameters the amplitude and angles (A1, A2, A3) and puts out a numpy array of dimension 3xN
-    # with 3 magnetization components for N unit cells
+def get_mag(polar_dat):
+    # This function takes as input parameters the amplitude and angles (A, gamma, phi) and puts out a numpy array of dimension 3xlen(sample)
+    # with 3 magnetization components for len(sample) grains
+    amp = polar_dat[:, 0]
+    gamma = polar_dat[:, 1]
+    phi = polar_dat[:, 2]
+    sin_phi = np.sin(phi)
 
-    mx=amp*np.cos(gamma)*np.sin(phi)
-    my=amp*np.sin(gamma)*np.sin(phi)
-    mz=amp*np.cos(phi)
-    return(mx, my, mz)
+    mx = amp * sin_phi * np.cos(gamma)
+    my = amp * sin_phi * np.sin(gamma)
+    mz = amp * np.cos(phi)
+
+    return (mx, my, mz)
 
 # The following two function just plot mean field magnetization and its derivative. This can be implemented as something like magnetization.mmag.visualize() once we implement this in the magnetization class I suppose.
 def plot_mean_mags(materials):
@@ -163,63 +186,126 @@ def plot_mean_mags(materials):
     plt.savefig('plots/meqtest.pdf')
     plt.show()
 
-def plot_mean_mag_derivs(materials):
-    #define a temperature grid:
-    temps=np.arange(0,2+1e-4, 1e-4)
-    temps[-1]=1.
-    for i,m in enumerate(materials):
-        dTmmag=m.get_mean_mag_deriv(temps)
-        label=str(m)
-        plt.plot(temps*m.Tc, dTmmag, label=label)
-
-    plt.xlabel(r'Temperature [K]', fontsize=16)
-    plt.ylabel(r'$\partial_Tm_{\rm{eq}}$', fontsize=16)
-    plt.legend(fontsize=14)
-    plt.title(r'Derivative of $m_{\rm{eq}}$ for all materials in sample', fontsize=18)
-    plt.savefig('plots/dmeqdTtest.pdf')
-    plt.show()
-
-
-materials, sample, m_amp, m_phi, m_gamma=get_sample()
-plot_mean_mags(materials)
-#plot_mean_mag_derivs(materials)
-
 
 # All the above defines the needed material parameters. Now we deal with the actual sample structure. In principle, the interactions
 # that will later be computed dynamically get scalar (z.B. exchange interaction) or vectorial outcomes that we can map onto the the material parameters
-# meq(T) and dm_eq/dT(T) for each grain in the sample.
+# meq(T) for each grain in the sample.
+# Preperation of material parameters on the sample structure:
 
 # From the sample and the materials within, one can set up an array of exchange-coupling constants between all grains:
-def get_exch_coup_sam(materials, sample):
+def get_exch_coup_sample(materials, sample, mat_loc):
     # This function takes as input parameters:
     #   (i) the 1d-list of magnetic unique materials in the sample (size M)
     #   (ii) the 1d numpy array of the sample, consisting of a material (from class material) at each grain (size N)
-    # As an output we get a 2d numpy array of dimension Nx2 for coupling each site with its 2 neighbours in the linear chain of grains. I will define the output array here:
-    ex_coup_arr=np.zeros((len(sample),2))
+    # As an output we get a 2d numpy array of dimension Nx2 for coupling each site with its 2 neighbours in the linear chain of grains.
 
     # Define a matrix J_mat of dimension len(materials)xlen(materials) with the exchange coupling constants of mat_i and mat_j at J_mat[i][j]=J_mat[j][i]
-    J_mat=np.zeros((len(materials), len(materials)))
+    J_mat = np.zeros((len(materials), len(materials)))
     # fill the diagonal with the mean field exchange constant of each material:
     for i, mat in enumerate(materials):
-        J_mat[i][i]=mat.J
+        J_mat[i][i] = mat.J
     # define the off-diagonals, namely some values for exchange coupling constants of different materials:
-    J_mat[0][1]=1e-20
-    J_mat[1][2]=5e-20
-    J_mat[0][2]=1e-19
+    J_mat[0][1] = 1e-20
+    J_mat[1][2] = 5e-20
+    J_mat[0][2] = 1e-19
     # symmetrize the matrix so that also elements [i][j] with i>j can be read out:
-    for i in range(1,len(materials)):
+    for i in range(1, len(materials)):
         for j in range(i):
-            J_mat[i][j]=J_mat[j][i]
+            J_mat[i][j] = J_mat[j][i]
 
     # Now we can assign the coupling of each grain to its nearest neighbours by filling the output array with the respective matrix entry:
-    # For this I fill a list with the indices of the respective materials:
-    mat_indices=[materials.index(grain) for grain in sample]
+    # Let's define the output array:
+    ex_coup_arr = np.zeros((len(sample), 2))
+
     # This list can assign the proper matrix elements to the output matrix
     for i, grain in enumerate(sample):
-        if i>0:
-            ex_coup_arr[i][0]=J_mat[mat_indices[i]][mat_indices[i-1]]
-        if i<len(sample)-1:
-            ex_coup_arr[i][1]=J_mat[mat_indices[i]][mat_indices[i+1]]
+        if i > 0:
+            ex_coup_arr[i][0] = J_mat[mat_loc[i]][mat_loc[i - 1]]
+        if i < len(sample) - 1:
+            ex_coup_arr[i][1] = J_mat[mat_loc[i]][mat_loc[i + 1]]
     return ex_coup_arr
 
-exch_coup_const=get_exch_coup_sam(materials, sample)
+
+
+def get_ex_stiff_sample(materials, sample, mat_loc):
+    # This computes a grid for the exchange stiffness in analogous fashion to get_exch_coup_sam()
+    A_mat = np.zeros((len(materials), len(materials)))
+    for i, mat in enumerate(materials):
+        A_mat[i][i] = mat.A_0
+
+    A_mat[0][1] = 1e-12
+    A_mat[1][2] = 5e-12
+    A_mat[0][2] = 2.5e-12
+
+    for i in range(1, len(materials)):
+        for j in range(i):
+            A_mat[i][j] = A_mat[j][i]
+
+    ex_stiff_arr = np.zeros((len(sample), 2))
+
+    for i, grain in enumerate(sample):
+        if i > 0:
+            ex_stiff_arr[i][0] = A_mat[mat_loc[i]][mat_loc[i - 1]]
+        if i < len(sample) - 1:
+            ex_stiff_arr[i][1] = A_mat[mat_loc[i]][mat_loc[i + 1]]
+    return ex_stiff_arr
+
+def S_sample(sample):
+    return np.array([mat.S for mat in sample])
+
+def Tc_sample(sample):
+    return np.array([mat.Tc for mat in sample])
+
+def J_sample(sample):
+    return np.array([mat.J for mat in sample])
+
+def lamda_sample(sample):
+    return np.array([mat.lamda for mat in sample])
+
+def get_ani_sample(sample):
+    ani_sam=np.array([mat.K_0 for mat in sample])
+    kappa_ani_sam=np.array([mat.kappa_anis for mat in sample])
+    ani_perp_sam= np.ones((len(sample), 3))
+    for i,mat in enumerate(sample):
+        ani_perp_sam[i, mat.anis_axis]=0
+    return ani_sam, kappa_ani_sam, ani_perp_sam
+
+def alpha_par_sample(sample):
+    return np.array([mat.alpha_par() for mat in sample])
+
+def qs_sample(sample):
+    return np.array([mat.qs() for mat in sample])
+
+def dbrillouin_t1_sample(sample):
+    return np.array([mat.dbrillouin_t1() for mat in sample])
+
+def dbrillouin_t2_sample(sample):
+    return np.array([mat.dbrillouin_t2() for mat in sample])
+
+def chi_par_num_sample(sample):
+    return np.array([mat.chi_par_num() for mat in sample])
+
+def chi_par_denomm1_sample(sample):
+    return np.array([mat.chi_par_denomm1() for mat in sample])
+
+
+materials, sample, m_amp, m_phi, m_gamma, mat_gr_ind, mat_gr_ind_flat, mat_loc=get_sample()
+plot_mean_mags(materials)
+exch_coup_const_sam=get_exch_coup_sample(materials, sample, mat_loc)
+ex_stiff_sam=get_ex_stiff_sample(materials, sample, mat_loc)
+S_sam=S_sample(sample)
+Tc_sam=Tc_sample(sample)
+J_sam=J_sample(sample)
+lamda_sam=lamda_sample(sample)
+K0_sam, kappa_ani_sam, ani_perp_sam=get_ani_sample(sample)
+alpha_par_sam=alpha_par_sample(sample)
+qs_sam=qs_sample(sample)
+dbrillouin_t1_sam=dbrillouin_t1_sample(sample)
+dbrillouin_t2_sam=dbrillouin_t2_sample(sample)
+chi_par_num_sam=chi_par_num_sample(sample)
+chi_par_denomm1_sam=chi_par_denomm1_sample(sample)
+
+### Now we deal with the temperature dependence of the parameters. All the following functions are called at every timestep of the dynamical simulation:
+
+
+
