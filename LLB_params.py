@@ -310,34 +310,36 @@ chi_par_denomm1_sam=chi_par_denomm1_sample(sample)
 
 
 def split_sample_T(T, tc_mask, mat_gr_ind, materials):
-    T_sep=[np.array([T[i] for i in mat_ind])/materials[j].Tc for j, mat_ind in enumerate(mat_gr_ind)]
-    tc_mask_sep=[np.array([tc_mask[i] for i in mat_ind]) for mat_ind in mat_gr_ind]
+    T_sep = [T[mat_ind] / materials[j].Tc for j, mat_ind in enumerate(mat_gr_ind)]
+    tc_mask_sep = [[tc_mask[i] for i in mat_ind] for mat_ind in mat_gr_ind]
     return T_sep, tc_mask_sep
 
 
-def get_mean_mag_sample_T(mat_gr_ind, mat_gr_ind_flat, materials, T_sep, tc_mask_sep):
-    mmag_sam_T = [list(materials[i].get_mean_mag(T_sep[i], tc_mask_sep[i])) for i in range(len(mat_gr_ind))]
-
-    mmag_sam_T_flat = np.array(list(itertools.chain.from_iterable(mmag_sam_T)))
-    return mmag_sam_T_flat[mat_gr_ind_flat]
+def get_mean_mag_sample_T(mat_gr_ind_flat, materials, T_sep, tc_mask_sep):
+    Tc_vals = np.array([mat.Tc for mat in materials])
+    T_sep_norm = [np.array(T) / Tc_vals[i] for i, T in enumerate(T_sep)]
+    tc_mask_sep_norm = [np.array(tc_mask) for tc_mask in tc_mask_sep]
+    mean_mags = np.array([mat.get_mean_mag(T, tc_mask) for mat, T, tc_mask in zip(materials, T_sep_norm, tc_mask_sep_norm)])
+    mmag_sam_T_flat = np.concatenate(mean_mags)[mat_gr_ind_flat]
+    return mmag_sam_T_flat
 
 Temp_test=np.arange(1,151)*10
 t_reduced = np.divide(Temp_test, [mat.Tc for mat in sample])
 tc_mask=t_reduced<1.
 Temp_sep, tc_mask_sep=split_sample_T(Temp_test, tc_mask, mat_gr_ind, materials)
-mmag_sam_T=get_mean_mag_sample_T(mat_gr_ind, mat_gr_ind_flat, materials, Temp_sep, tc_mask_sep)
+mmag_sam_T=get_mean_mag_sample_T(mat_gr_ind_flat, materials, Temp_sep, tc_mask_sep)
 
 def ani_sample_T(mmag_sam_T, K0_sam, kappa_ani_sam):
-    return K0_sam*mmag_sam_T**kappa_ani_sam
+    return np.multiply(K0_sam,np.power(mmag_sam_T,kappa_ani_sam))
 
 def ex_stiff_sample_T(mmag_sam_T, ex_stiff_sam):
-    return mmag_sam_T[:, np.newaxis]**2*ex_stiff_sam
+    return np.multiply(np.power(mmag_sam_T[:, np.newaxis],2),ex_stiff_sam)
 
 def qs_sample_T(qs_sam, mmag_sam_T, T):
-    return qs_sam*mmag_sam_T/T
+    return np.true_divide(np.multiply(qs_sam,mmag_sam_T),T)
 
 def alpha_par_sample_T(mmag_sam_T, T, alpha_par_sam, qs_sam_T):
-    return alpha_par_sam/np.sinh(2*qs_sam_T)
+    return np.true_divide(alpha_par_sam,np.sinh(2*qs_sam_T))
 
 def alpha_trans_sample_T(mmag_sam_T, lamda_sam, T, qs_sam_T, Tc_sam):
     return lamda_sam/mmag_sam_T*(np.tanh(qs_sam_T)/qs_sam_T-mmag_sam_T/3/Tc_sam)
@@ -347,3 +349,19 @@ ex_stiff_sam_T=ex_stiff_sample_T(mmag_sam_T, ex_stiff_sam)
 qs_sam_T=qs_sample_T(qs_sam, mmag_sam_T, Temp_test)
 alpha_par_sam_T=alpha_par_sample_T(mmag_sam_T, Temp_test, alpha_par_sam, qs_sam_T)
 alpha_trans_sam_T=alpha_trans_sample_T(mmag_sam_T, lamda_sam, Temp_test, qs_sam_T, Tc_sam)
+
+def anis_field(anis_sam_T, m, m_squared, ani_perp_sam):
+    ani_strength=anis_sam_T/m_squared
+    return ani_strength[:, np.newaxis]*(m*ani_perp_sam)
+
+def ex_field(ex_stiff_sam_T, m_diff_up, m_diff_down):
+    return ex_stiff_sam_T[:,0]*m_diff_up+ex_stiff_sam_T[:,1]*m_diff_down
+
+def th_field(m, m_squared, mmag_sam_T, T, Tc_sam, chi_par_sam_T, tc_mask):
+    over_tc = ~tc_mask
+    factor = 1/2/chi_par_sam_T[tc_mask]
+    H_th = np.zeros(len(T))
+    H_th[tc_mask] = (1-m_squared[tc_mask]/mmag_sam_T[tc_mask]**2)*factor
+    H_th[over_tc] = (1+3/5*Tc_sam[over_tc]/(T[over_tc]-Tc_sam[over_tc]))*m_squared[over_tc]/chi_par_sam_T[over_tc]
+    return H_th[:, np.newaxis]*m
+
