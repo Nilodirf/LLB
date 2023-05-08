@@ -369,5 +369,5 @@ def th_field(m, m_squared, mmag_sam_T, T, Tc_sam, chi_par_sam_T, under_tc, over_
     H_th = np.zeros(len(T))
     H_th[under_tc] = (1-m_squared[under_tc]/mmag_sam_T[under_tc]**2)*factor
     H_th[over_tc] = (1+3/5*Tc_sam[over_tc]/(T[over_tc]-Tc_sam[over_tc]+1e-6))*m_squared[over_tc]/chi_par_sam_T[over_tc]
-    return H_th[:, np.newaxis]*m  
+    return H_th[:, np.newaxis]*m
 
