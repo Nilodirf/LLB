@@ -317,9 +317,8 @@ def split_sample_T(T, tc_mask, mat_gr_ind, materials):
 
 def get_mean_mag_sample_T(mat_gr_ind_flat, materials, T_sep, tc_mask_sep):
     Tc_vals = np.array([mat.Tc for mat in materials])
-    T_sep_norm = [np.array(T) / Tc_vals[i] for i, T in enumerate(T_sep)]
     tc_mask_sep_norm = [np.array(tc_mask) for tc_mask in tc_mask_sep]
-    mean_mags = np.array([mat.get_mean_mag(T, tc_mask) for mat, T, tc_mask in zip(materials, T_sep_norm, tc_mask_sep_norm)])
+    mean_mags = np.array([mat.get_mean_mag(T, tc_mask) for mat, T, tc_mask in zip(materials, T_sep, tc_mask_sep_norm)])
     mmag_sam_T_flat = np.concatenate(mean_mags)[mat_gr_ind_flat]
     return mmag_sam_T_flat
 
