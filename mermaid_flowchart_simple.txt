@@ -1,0 +1,29 @@
+stateDiagram-v2
+direction LR
+state run_LLB(){
+    direction LR
+    get_sample() --> instantaneous_temp
+    get_sample() --> create_static_constants
+    get_sample() --> dynamic_mag
+    create_static_constants --> create_T_dependent_variables
+    state dynamics {
+        dynamic_mag
+        mag_incr()
+        instantaneous_temp --> get_mean_mag()
+        state mag_incr(){
+            direction LR
+            get_mean_mag()
+            get_mean_mag() --> create_T_dependent_variables
+            create_T_dependent_variables --> effective_field
+            create_T_dependent_variables --> damping_parameters
+            effective_field --> mag_increment
+            damping_parameters --> mag_increment
+            mag_increment --> update_mag
+            dynamic_mag --> get_mean_mag()     
+        }
+        update_mag --> save_mag
+        update_mag--> dynamic_mag
+        save_mag --> dynamic_mag
+    }
+}
+save_mag --> [*]

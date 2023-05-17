@@ -1,0 +1,51 @@
+stateDiagram-v2
+direction LR
+    run_LLB() --> static_part
+    note left of run_LLB() : starts the simulation
+    constants_sam --> variables_sam_T
+    create_mean_mag_map() --> get_magnetization_map()
+    sample --> get_magnetization_map()
+    initial_magnetization --> dynamic_magnetization
+    get_temperature_map() --> instantaneous_temperature : updates temperatures in for loop
+    instantaneous_temperature --> mmag_sam_T
+    save_m --> mag_map : after all timesteps in temperature map
+    note left of mag_map : The complete magnetization map is the output of the code
+    note right of constants_sam: a bunch of constants all ending with '_sam'
+    state static_part {
+        get_temperature_map()
+        get_sample() --> material
+        get_sample() --> sample
+        get_sample() --> initial_magnetization
+        sample --> constants_sam
+        parameters --> constants_sam
+        other_constants --> constants_sam
+        state material{
+            parameters
+            other_constants
+            create_mean_mag_map()
+        }
+        }
+    note left of static_part : all of these functions and constants are  called and created just once
+    state dynamic_part{
+        instantaneous_temperature --> dm
+        state mag_incr() {
+        get_magnetization_map() --> mmag_sam_T
+        dynamic_magnetization --> mmag_sam_T
+        dynamic_magnetization --> H_eff
+        mmag_sam_T --> variables_sam_T : gives temperature dependence
+        note right of variables_sam_T : dynamical temperature dependent extensions of constants_sam
+        variables_sam_T --> H_eff
+        mmag_sam_T --> H_eff
+        variables_sam_T --> damping_parameters
+        damping_parameters --> dm
+        dynamic_magnetization --> dm
+        H_eff --> dm
+        dm --> update_m
+        }
+        note right of mag_incr() : computes magnetization increments with the LLB at given instantaneous temp and mag profiles
+        update_m --> dynamic_magnetization : if first Heun step
+        update_m --> save_m : if second Heun step
+        save_m --> dynamic_magnetization
+    }
+    note right of dynamic_part : functions called for every temperature in map and dynamical constants
+    
