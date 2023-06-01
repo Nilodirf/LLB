@@ -5,12 +5,10 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="60c744de-95f2-46bf-b6d2-1138dc1bdbb8" name="Changes" comment="ahaaaa">
-      <change beforePath="$PROJECT_DIR$/.idea/.name" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.name" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.ipynb_checkpoints/llb_params-checkpoint.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/.ipynb_checkpoints/llb_params-checkpoint.ipynb" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/LLB_params.py" beforeDir="false" afterPath="$PROJECT_DIR$/LLB_params.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/llb_params.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/llb_params.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/plots/meqtest.pdf" beforeDir="false" afterPath="$PROJECT_DIR$/plots/meqtest.pdf" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
