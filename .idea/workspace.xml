@@ -44,7 +44,7 @@
     &quot;settings.editor.selected.configurable&quot;: &quot;vcs.Git&quot;
   }
 }</component>
-  <component name="RunManager">
+  <component name="RunManager" selected="Python.new_sumit_plot">
     <configuration name="LLB_params" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="LLB" />
       <option name="INTERPRETER_OPTIONS" value="" />
