@@ -5,7 +5,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="60c744de-95f2-46bf-b6d2-1138dc1bdbb8" name="Changes" comment="ahaaaa">
+      <change beforePath="$PROJECT_DIR$/.idea/.name" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.name" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/LLB_integrated_solver.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/LLB_integrated_solver.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/LLB_params.py" beforeDir="false" afterPath="$PROJECT_DIR$/LLB_params.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/LLB_te_interpolation.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/LLB_te_interpolation.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/llb_params.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/llb_params.ipynb" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -38,13 +43,13 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "last_opened_file_path": "C:/Users/tgrie/OneDrive/Dokumente/GitHub/LLB",
-    "settings.editor.selected.configurable": "vcs.Git"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/tgrie/OneDrive/Dokumente/GitHub/LLB&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;vcs.Git&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="C:\Users\tgrie\OneDrive\Dokumente\GitHub\LLB" />

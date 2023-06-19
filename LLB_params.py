@@ -379,8 +379,8 @@ def mag_incr(materials, sample, m_amp, m_phi, m_gamma, mat_gr_ind, mat_gr_ind_fl
              dbrillouin_t1_sam, dbrillouin_t2_sam, chi_par_num_sam, chi_par_denomm1_sam, m, Te, H_ext, gamma, dt):
     # some operations of the magnetization we need:
     m_squared = np.sum(np.power(m, 2), axis=-1)
-    m_diff_down = np.concatenate((np.diff(m, axis=0), np.zeros((1, 3))), axis=0)
-    m_diff_up = -np.roll(m_diff_down, 1)
+    m_diff_down = -np.concatenate((np.diff(m, axis=0), np.zeros((1, 3))), axis=0)
+    m_diff_up = np.roll(m_diff_down, 1)
 
     # at every timestep, we have to calculate the temperature dependent parameters, so let's call all the functions defined before
     t_reduced = np.divide(Te, Tc_sam)
